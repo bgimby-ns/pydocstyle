@@ -839,6 +839,32 @@ class ConventionChecker:
         )
 
     @staticmethod
+    def _has_args(definition):
+        """D417: Yield error for missing arguments in docstring.
+
+        Given a list of arguments found in the docstring and the
+        callable definition, it checks if all the arguments of the
+        callable are present in the docstring, else it yields a
+        D417 with a list of missing arguments.
+
+        """
+        if isinstance(definition, Function):
+            function_args = get_function_args(definition.source)
+            # If the method isn't static, then we skip the first
+            # positional argument as it is `cls` or `self`
+            if definition.kind == 'method' and not definition.is_static:
+                function_args = function_args[1:]
+            # Filtering out any arguments prefixed with `_` marking them
+            # as private.
+            function_args = [
+                arg_name
+                for arg_name in function_args
+                if not is_def_arg_private(arg_name)
+            ]
+            return bool(function_args)
+        return False
+
+    @staticmethod
     def _check_missing_args(docstring_args, definition):
         """D417: Yield error for missing arguments in docstring.
 
@@ -1008,10 +1034,19 @@ class ConventionChecker:
         Yields all violation from `_check_google_section` for each valid
         Google-style section.
         """
+        needs_args_section = self._has_args(definition)
+        has_args_section = False
         for ctx in self._get_section_contexts(
             lines, self.GOOGLE_SECTION_NAMES
         ):
+            capitalized_section = ctx.section_name.title()
+            if capitalized_section == "Args":
+                has_args_section = True
             yield from self._check_google_section(docstring, definition, ctx)
+
+        if needs_args_section and not has_args_section:
+            yield violations.D419()
+
 
     @check_for(Definition)
     def check_docstring_sections(self, definition, docstring):
@@ -1023,13 +1058,9 @@ class ConventionChecker:
         if len(lines) < 2:
             return
 
-        found_numpy = yield from self._check_numpy_sections(
+        yield from self._check_google_sections(
             lines, definition, docstring
         )
-        if not found_numpy:
-            yield from self._check_google_sections(
-                lines, definition, docstring
-            )
 
 
 parse = Parser()

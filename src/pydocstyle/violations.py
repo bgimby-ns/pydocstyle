@@ -416,6 +416,11 @@ D418 = D4xx.create_error(
     'Function/ Method decorated with @overload shouldn\'t contain a docstring',
 )
 
+D419 = D4xx.create_error(
+    'D419',
+    'Missing args section in the docstring',
+)
+
 
 class AttrDict(dict):
     def __getattr__(self, item: str) -> Any:
